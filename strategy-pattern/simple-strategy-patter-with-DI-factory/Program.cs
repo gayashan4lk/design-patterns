@@ -4,30 +4,48 @@ using simple_strategy_patter_with_DI_factory.Services;
 
 namespace simple_strategy_patter_with_DI_factory
 {
+    public class PaymentServicesFactory
+    {
+        private readonly Dictionary<PaymentServices, Func<IPaymentService>> _paymentServices;
+
+        public PaymentServicesFactory()
+        {
+            _paymentServices = new Dictionary<PaymentServices, Func<IPaymentService>>();
+        }
+
+        public void RegisterService(PaymentServices paymentServiceName, Func<IPaymentService> paymentService)
+        {
+            _paymentServices.Add(paymentServiceName, paymentService);
+        }
+
+        public IPaymentService GetService(PaymentServices paymentServiceName)
+        {
+            // return _paymentServices[paymentServiceName]();
+
+            if (_paymentServices.TryGetValue(paymentServiceName, out var service))
+            {
+                return service();
+            }
+
+            throw new KeyNotFoundException($"Payment service {paymentServiceName} is not registered");
+        }
+    }
+
     internal class Program
     {
         static void Main(string[] args)
         {
             // Setup dependency injection
-            var serviceProvider = new ServiceCollection()
-                .AddTransient<Dictionary<PaymentServices, IPaymentService>>(provider =>
-                {
-                    var strategies = new Dictionary<PaymentServices, IPaymentService>
-                    {
-                        { PaymentServices.CreditCard, new CreditCardPaymentService() },
-                        { PaymentServices.PayPal, new PayPalPaymentService() }
-                    };
+            var serviceProvider = new ServiceCollection().AddSingleton<PaymentServicesFactory>().BuildServiceProvider();
 
-                    return strategies;
-                })
-                .BuildServiceProvider();
+            var factory = serviceProvider.GetRequiredService<PaymentServicesFactory>();
 
-            var paymentStrategies = serviceProvider.GetRequiredService<Dictionary<PaymentServices, IPaymentService>>();
-
+            factory.RegisterService(PaymentServices.CreditCard, () => new CreditCardPaymentService());
+            factory.RegisterService(PaymentServices.PayPal, () => new PayPalPaymentService());
 
             // Resolve the required services
-            var creditCardPaymentService = paymentStrategies[PaymentServices.CreditCard];
-            var payPalPaymentService = paymentStrategies[PaymentServices.PayPal];
+            var creditCardPaymentService = factory.GetService(PaymentServices.CreditCard);
+            var payPalPaymentService = factory.GetService(PaymentServices.PayPal);
 
             // Using strategies
             ShoppingCart cart = new ShoppingCart(creditCardPaymentService);
