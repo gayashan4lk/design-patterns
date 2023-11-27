@@ -9,11 +9,25 @@ namespace simple_strategy_pattern_wth_DI
         static void Main(string[] args)
         {
             // Setup dependency injection
-            var serviceProvider = new ServiceCollection().AddTransient<IPaymentService, CreditCardPaymentService>().AddTransient<IPaymentService, PayPalPaymentService>().BuildServiceProvider();
+            var serviceProvider = new ServiceCollection()
+                .AddTransient<Dictionary<string, IPaymentService>>(provider =>
+                {
+                    var strategies = new Dictionary<string, IPaymentService>
+                    {
+                        { "CreditCardPaymentService", new CreditCardPaymentService() },
+                        { "PayPalPaymentService", new PayPalPaymentService() }
+                    };
+
+                    return strategies;
+                })
+                .BuildServiceProvider();
+
+            var paymentStrategies = serviceProvider.GetRequiredService<Dictionary<string, IPaymentService>>();
+            
 
             // Resolve the required services
-            var creditCardPaymentService = serviceProvider.GetRequiredService<IPaymentService>("CreditCard");
-            var payPalPaymentService = serviceProvider.GetRequiredService<IPaymentService>("PayPal");
+            var creditCardPaymentService = paymentStrategies["CreditCardPaymentService"];
+            var payPalPaymentService = paymentStrategies["PayPalPaymentService"];
 
             // Using strategies
             ShoppingCart cart = new ShoppingCart(creditCardPaymentService);
